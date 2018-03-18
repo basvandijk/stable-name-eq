@@ -4,12 +4,14 @@ let
 
   inherit (nixpkgs) pkgs;
 
-  f = { mkDerivation, base, template-haskell, th-abstraction, containers, ghc-prim, stdenv }:
+  f = { mkDerivation, base, template-haskell, th-abstraction
+      , containers, ghc-prim, criterion, stdenv }:
       mkDerivation {
         pname = "stable-name-eq";
         version = "0.0.0.0";
         sha256 = "";
         libraryHaskellDepends = [ base template-haskell th-abstraction containers ghc-prim ];
+        benchmarkHaskellDepends = [ base criterion ];
         homepage = "https://github.com/basvandijk/stable-name-eq";
         description = "Eq-like class that uses StableNames for fast equality checking";
         license = stdenv.lib.licenses.bsd3;

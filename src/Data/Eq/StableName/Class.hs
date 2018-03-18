@@ -6,7 +6,8 @@
 module Data.Eq.StableName.Class
     ( StableNameEq, ($==), (==$)
 
-    , StableNameEq1(..), StableNameEq2(..)
+    -- TODO: Think about if we should add these:
+    -- , StableNameEq1(..), StableNameEq2(..)
     ) where
 
 import System.Mem.StableName
@@ -18,6 +19,7 @@ import System.Mem.StableName
     if sx == sy
       then pure True
       else x ==$ y
+-- {-# INLINABLE ($==) #-}
 
 class StableNameEq a where
     (==$) :: a -> a -> IO Bool
@@ -35,13 +37,15 @@ class StableNameEq a where
 -- instance {-# OVERLAPPABLE #-} (Eq a) => StableNameEq a where
 --     x ==$ y = pure $ x == y
 
-class StableNameEq1 f where
-    liftStableNameEq
-        ::  (a ->   b -> IO Bool)
-        -> f a -> f b -> IO Bool
+-- TODO: Think about if we should add these:
+--
+-- class StableNameEq1 f where
+--     liftStableNameEq
+--         ::  (a ->   b -> IO Bool)
+--         -> f a -> f b -> IO Bool
 
-class StableNameEq2 f where
-    liftStableNameEq2
-        :: ( a   ->   b   -> IO Bool)
-        -> (   c ->     d -> IO Bool)
-        -> f a c -> f b d -> IO Bool
+-- class StableNameEq2 f where
+--     liftStableNameEq2
+--         :: ( a   ->   b   -> IO Bool)
+--         -> (   c ->     d -> IO Bool)
+--         -> f a c -> f b d -> IO Bool

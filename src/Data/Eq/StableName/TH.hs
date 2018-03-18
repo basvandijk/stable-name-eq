@@ -8,21 +8,23 @@ module Data.Eq.StableName.TH
     , makeStableNameEq
     , makeNotStableNameEq
 
-      -- * 'StableNameEq1'
-    , deriveStableNameEq1
-    , makeLiftStableNameEq
-    , makeStableNameEq1
+    -- TODO: Think about if we should add these:
+    --
+    --   -- * 'StableNameEq1'
+    -- , deriveStableNameEq1
+    -- , makeLiftStableNameEq
+    -- , makeStableNameEq1
 
-      -- * 'StableNameEq2'
-    , deriveStableNameEq2
-    , makeLiftStableNameEq2
-    , makeStableNameEq2
+    --   -- * 'StableNameEq2'
+    -- , deriveStableNameEq2
+    -- , makeLiftStableNameEq2
+    -- , makeStableNameEq2
     ) where
 
 import Data.Eq.StableName.Class
 
 import           Control.Applicative (liftA2)
-import           Data.Deriving.Internal
+import           Data.Deriving.Internal (ClassRep(..), TyVarMap1, OneOrTwoNames(..), eqConst, notValName, buildTypeInstance, newNameList, varTToName, isNullaryCon, untagExpr, primOpAppExpr, eqIntHashValName, falseDataName, trueDataName, notValName, addrHashTypeName, eqAddrHashValName, charHashTypeName, eqCharHashValName, andValName, doubleHashTypeName, eqDoubleHashValName, floatHashTypeName, eqFloatHashValName, mentionsName, outOfPlaceTyVarError, isTyFamily, unapplyTy, eqWordHashValName, wordHashTypeName, intHashTypeName)
 import           Data.List (foldl1', partition)
 import qualified Data.Map as Map
 
@@ -53,43 +55,43 @@ makeNotStableNameEq name = do
     lamE [varP x1, varP x2] $ varE notValName `appE`
         (makeStableNameEq name `appE` varE x1 `appE` varE x2)
 
--- | Generates an 'StableNameEq1' instance declaration for the given data type or data
--- family instance.
-deriveStableNameEq1 :: Name -> Q [Dec]
-deriveStableNameEq1 = deriveStableNameEqClass StableNameEq1
+-- -- | Generates an 'StableNameEq1' instance declaration for the given data type or data
+-- -- family instance.
+-- deriveStableNameEq1 :: Name -> Q [Dec]
+-- deriveStableNameEq1 = deriveStableNameEqClass StableNameEq1
 
--- | Generates a lambda expression which behaves like 'liftStableNameEq' (without
--- requiring an 'StableNameEq1' instance).
---
--- This function is not available with @transformers-0.4@.
-makeLiftStableNameEq :: Name -> Q Exp
-makeLiftStableNameEq = makeStableNameEqClass StableNameEq1
+-- -- | Generates a lambda expression which behaves like 'liftStableNameEq' (without
+-- -- requiring an 'StableNameEq1' instance).
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- makeLiftStableNameEq :: Name -> Q Exp
+-- makeLiftStableNameEq = makeStableNameEqClass StableNameEq1
 
--- | Generates a lambda expression which behaves like 'eq1' (without
--- requiring an 'StableNameEq1' instance).
-makeStableNameEq1 :: Name -> Q Exp
-makeStableNameEq1 name = makeLiftStableNameEq name `appE` varE eqValName
+-- -- | Generates a lambda expression which behaves like 'eq1' (without
+-- -- requiring an 'StableNameEq1' instance).
+-- makeStableNameEq1 :: Name -> Q Exp
+-- makeStableNameEq1 name = makeLiftStableNameEq name `appE` varE eqValName
 
--- | Generates an 'StableNameEq2' instance declaration for the given data type or data
--- family instance.
---
--- This function is not available with @transformers-0.4@.
-deriveStableNameEq2 :: Name -> Q [Dec]
-deriveStableNameEq2 = deriveStableNameEqClass StableNameEq2
+-- -- | Generates an 'StableNameEq2' instance declaration for the given data type or data
+-- -- family instance.
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- deriveStableNameEq2 :: Name -> Q [Dec]
+-- deriveStableNameEq2 = deriveStableNameEqClass StableNameEq2
 
--- | Generates a lambda expression which behaves like 'liftStableNameEq2' (without
--- requiring an 'StableNameEq2' instance).
---
--- This function is not available with @transformers-0.4@.
-makeLiftStableNameEq2 :: Name -> Q Exp
-makeLiftStableNameEq2 = makeStableNameEqClass StableNameEq2
+-- -- | Generates a lambda expression which behaves like 'liftStableNameEq2' (without
+-- -- requiring an 'StableNameEq2' instance).
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- makeLiftStableNameEq2 :: Name -> Q Exp
+-- makeLiftStableNameEq2 = makeStableNameEqClass StableNameEq2
 
--- | Generates a lambda expression which behaves like 'eq2' (without
--- requiring an 'StableNameEq2' instance).
---
--- This function is not available with @transformers-0.4@.
-makeStableNameEq2 :: Name -> Q Exp
-makeStableNameEq2 name = makeLiftStableNameEq name `appE` varE eqValName `appE` varE eqValName
+-- -- | Generates a lambda expression which behaves like 'eq2' (without
+-- -- requiring an 'StableNameEq2' instance).
+-- --
+-- -- This function is not available with @transformers-0.4@.
+-- makeStableNameEq2 :: Name -> Q Exp
+-- makeStableNameEq2 name = makeLiftStableNameEq name `appE` varE eqValName `appE` varE eqValName
 
 -------------------------------------------------------------------------------
 -- Code generation
@@ -267,7 +269,9 @@ makeCaseForType eClass tvMap conName (ForallT _ _ ty) = makeCaseForType eClass t
 makeCaseForType eClass tvMap conName ty = do
     let tyCon :: Type
         tyArgs :: [Type]
-        tyCon:tyArgs = unapplyTy ty
+        (tyCon, tyArgs) = case unapplyTy ty of
+                            tyCon:tyArgs -> (tyCon, tyArgs)
+                            _ -> error "This can't happen but it did!"
 
         numLastArgs :: Int
         numLastArgs = min (arity eClass) (length tyArgs)
@@ -294,8 +298,8 @@ makeCaseForType eClass tvMap conName ty = do
 -- | A representation of which @StableNameEq@ variant is being derived.
 data StableNameEqClass =
      StableNameEq
-   | StableNameEq1
-   | StableNameEq2
+   -- | StableNameEq1
+   -- | StableNameEq2
      deriving (Bounded, Enum)
 
 instance ClassRep StableNameEqClass where
@@ -304,8 +308,8 @@ instance ClassRep StableNameEqClass where
     allowExQuant _ = True
 
     fullClassName StableNameEq  = ''StableNameEq
-    fullClassName StableNameEq1 = ''StableNameEq1
-    fullClassName StableNameEq2 = ''StableNameEq2
+    -- fullClassName StableNameEq1 = ''StableNameEq1
+    -- fullClassName StableNameEq2 = ''StableNameEq2
 
     classConstraint eClass i
       | eMin <= i && i <= eMax = Just $ fullClassName (toEnum i :: StableNameEqClass)
@@ -317,10 +321,10 @@ instance ClassRep StableNameEqClass where
 
 eqConstName :: StableNameEqClass -> Name
 eqConstName StableNameEq  = 'eqConst
-eqConstName StableNameEq1 = 'liftEqConst
-eqConstName StableNameEq2 = 'liftEq2Const
+-- eqConstName StableNameEq1 = 'liftEqConst
+-- eqConstName StableNameEq2 = 'liftEq2Const
 
 eqName :: StableNameEqClass -> Name
 eqName StableNameEq  = '(==$)
-eqName StableNameEq1 = 'liftStableNameEq
-eqName StableNameEq2 = 'liftStableNameEq2
+-- eqName StableNameEq1 = 'liftStableNameEq
+-- eqName StableNameEq2 = 'liftStableNameEq2
