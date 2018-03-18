@@ -24,8 +24,10 @@ myRec1 = MyRec{ field1 = False
 myRec2 :: MyRec
 myRec2 = MyRec{ field1 = False
               , field2 = Nothing
-              , field3 = [1,2,4]
+              , field3 = [1,2,3]
               }
 
 main :: IO ()
-main = print $ myRec1 $== myRec2
+main = do
+    equal <- myRec1 $== myRec2
+    print equal

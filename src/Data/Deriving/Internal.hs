@@ -120,8 +120,8 @@ traverseConst :: f (t b) -> (a -> f b) -> t a -> f (t b)
 traverseConst x _ _ = x
 {-# INLINE traverseConst #-}
 
-eqConst :: Bool
-        -> a -> a -> Bool
+eqConst :: IO Bool
+        -> a -> a -> IO Bool
 eqConst x _ _ = x
 {-# INLINE eqConst #-}
 

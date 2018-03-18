@@ -19,8 +19,9 @@ module Data.Eq.StableName.TH
     , makeStableNameEq2
     ) where
 
-import Data.Eq.StableName
+import Data.Eq.StableName.Class
 
+import           Control.Applicative (liftA2)
 import           Data.Deriving.Internal
 import           Data.List (foldl1', partition)
 import qualified Data.Map as Map
@@ -198,7 +199,8 @@ makeFallThroughCaseFalse = makeFallThroughCase falseDataName
 makeFallThroughCaseTrue  = makeFallThroughCase trueDataName
 
 makeFallThroughCase :: Name -> Q Clause
-makeFallThroughCase dataName = clause [wildP, wildP] (normalB $ conE dataName) []
+makeFallThroughCase dataName =
+    clause [wildP, wildP] (normalB $ appE (varE 'pure) (conE dataName)) []
 
 makeCaseForCon :: StableNameEqClass -> TyVarMap1 -> ConstructorInfo -> Q Clause
 makeCaseForCon eClass tvMap
@@ -218,9 +220,9 @@ makeCaseForArgs :: StableNameEqClass
                 -> [Name]
                 -> [Name]
                 -> Q Exp
-makeCaseForArgs _ _ _ [] [] [] = conE trueDataName
+makeCaseForArgs _ _ _ [] [] [] = appE (varE 'pure) (conE trueDataName)
 makeCaseForArgs eClass tvMap conName tys as bs =
-    foldl1' (\q e -> infixApp q (varE andValName) e)
+    foldl1' (\q e -> appsE [(appE (varE 'liftA2) (varE andValName)), q, e])
             (zipWith3 (makeCaseForArg eClass tvMap conName) tys as bs)
 
 makeCaseForArg :: StableNameEqClass
@@ -237,7 +239,7 @@ makeCaseForArg _ _ _ (ConT tyName) a b = primStableNameEqExpr
     bExpr = varE b
 
     makePrimStableNameEqExpr :: Name -> Q Exp
-    makePrimStableNameEqExpr n = primOpAppExpr aExpr n bExpr
+    makePrimStableNameEqExpr n = appE (varE 'pure) (primOpAppExpr aExpr n bExpr)
 
     primStableNameEqExpr :: Q Exp
     primStableNameEqExpr
@@ -247,7 +249,7 @@ makeCaseForArg _ _ _ (ConT tyName) a b = primStableNameEqExpr
       | tyName == floatHashTypeName  = makePrimStableNameEqExpr eqFloatHashValName
       | tyName == intHashTypeName    = makePrimStableNameEqExpr eqIntHashValName
       | tyName == wordHashTypeName   = makePrimStableNameEqExpr eqWordHashValName
-      | otherwise = infixApp aExpr (varE eqValName) bExpr
+      | otherwise = infixApp aExpr (varE '($==)) bExpr
 makeCaseForArg eClass tvMap conName ty a b =
     makeCaseForType eClass tvMap conName ty `appE` varE a `appE` varE b
 
@@ -259,7 +261,7 @@ makeCaseForType :: StableNameEqClass
 makeCaseForType _ tvMap _ (VarT tyName) =
     varE $ case Map.lookup tyName tvMap of
       Just (OneName eq) -> eq
-      Nothing           -> eqValName
+      Nothing           -> '($==)
 makeCaseForType eClass tvMap conName (SigT ty _)      = makeCaseForType eClass tvMap conName ty
 makeCaseForType eClass tvMap conName (ForallT _ _ ty) = makeCaseForType eClass tvMap conName ty
 makeCaseForType eClass tvMap conName ty = do
@@ -283,7 +285,7 @@ makeCaseForType eClass tvMap conName ty = do
        else if any (`mentionsName` tyVarNames) rhsArgs
                then appsE $ [ varE . eqName $ toEnum numLastArgs]
                             ++ map (makeCaseForType eClass tvMap conName) rhsArgs
-               else varE eqValName
+               else varE '($==)
 
 -------------------------------------------------------------------------------
 -- Class-specific constants
